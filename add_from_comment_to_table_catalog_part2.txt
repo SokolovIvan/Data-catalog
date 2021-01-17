@@ -1,0 +1,64 @@
+USE [AnalitDB]
+GO
+/****** Object:  StoredProcedure [struct].[add_from_comment_to_table_catalog_part2]    Script Date: 1/17/2021 3:36:11 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+ALTER PROCEDURE  [struct].[add_from_comment_to_table_catalog_part2]
+/*
+[AnalitDB].[struct].[X_for_describing_buf](note) |
+[AnalitDB].[struct].[X_TABLES](note)
+---
+[AnalitDB].[struct].[X_for_describing_buf](gist) |
+[AnalitDB].[struct].[X_TABLES](gist)
+---
+[AnalitDB].[struct].[X_for_describing_buf](type) |
+[AnalitDB].[struct].[X_TABLES](type)
+*/
+AS BEGIN
+
+
+CREATE TABLE [struct].[sys_id_for_update_x_tables_buf](
+	[major_id] [int] NULL,
+	[ind] [int] NULL
+) ON [PRIMARY]
+
+
+insert into  [struct].[sys_id_for_update_x_tables_buf]
+SELECT 
+      [sys_id] as [major_id]
+	  ,row_number () over (order by [major_id]) as [ind] 
+	  FROM [AnalitDB].[struct].[X_TABLES] x_tb
+  join 
+  (select major_id, [value] from sys.extended_properties  where minor_id = 0 and name =  'MS_Description') s_ep
+  on x_tb.sys_id = s_ep.major_id  and (s_ep.value <> x_tb.[note] + '|' + x_tb.[gist] + '|' + x_tb.[type] or (s_ep.value is not null and x_tb.[note] is null))
+  where [sys_id] in (select major_id from sys.extended_properties  where minor_id = 0 and name =  'MS_Description' ) 
+
+ declare @note varchar (2000), @major_id int, @gist int, @type int, @ind0 int, @ind1 int
+
+set @ind0 = (select min (ind) from [AnalitDB].[struct].[sys_id_for_update_x_tables_buf])
+set @ind1 = (select max (ind) from [AnalitDB].[struct].[sys_id_for_update_x_tables_buf])
+
+
+while @ind0 <= @ind1 begin
+
+
+set @major_id = (select major_id from [AnalitDB].[struct].[sys_id_for_update_x_tables_buf] where ind = @ind0)
+set @note = (select [note] from [AnalitDB].[struct].[X_for_describing_buf] where [major_id] = @major_id)
+set @gist = (select [gist] from [AnalitDB].[struct].[X_for_describing_buf] where [major_id] = @major_id)
+set @type = (select [type] from [AnalitDB].[struct].[X_for_describing_buf] where [major_id] = @major_id)
+
+
+update [AnalitDB].[struct].[X_TABLES] set [note] = @note where [sys_id] = @major_id
+update [AnalitDB].[struct].[X_TABLES] set [gist] = @gist where [sys_id] = @major_id
+update [AnalitDB].[struct].[X_TABLES] set [type] = @type where [sys_id] = @major_id
+
+set @ind0 = @ind0 + 1 end
+
+
+  drop table [struct].[sys_id_for_update_x_tables_buf]
+
+  END
+ 
