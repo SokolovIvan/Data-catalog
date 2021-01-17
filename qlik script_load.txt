@@ -1,0 +1,161 @@
+SET ThousandSep=' ';
+SET DecimalSep=',';
+SET MoneyThousandSep=' ';
+SET MoneyDecimalSep=',';
+SET MoneyFormat='# ##0,00 ₽;-# ##0,00 ₽';
+SET TimeFormat='h:mm:ss';
+SET DateFormat='DD.MM.YYYY';
+SET TimestampFormat='DD.MM.YYYY h:mm:ss[.fff]';
+SET FirstWeekDay=0;
+SET BrokenWeeks=1;
+SET ReferenceDay=0;
+SET FirstMonthOfYear=1;
+SET CollationLocale='ru-RU';
+SET MonthNames='янв;февр;мар;апр;май;июн;июл;авг;сент;окт;нояб;дек';
+SET LongMonthNames='январь;февраль;март;апрель;май;июнь;июль;август;сентябрь;октябрь;ноябрь;декабрь';
+SET DayNames='пн;вт;ср;чт;пт;сб;вс';
+SET LongDayNames='понедельник;вторник;среда;четверг;пятница;суббота;воскресенье';
+
+
+ODBC CONNECT To [QV-DWH];
+
+
+catalog_name:
+SQL SELECT 
+	[source_data]
+	,[full_name]
+      ,[describe] as 'Описание'
+      ,[gist] as 'Сущность'
+      ,[type] as 'Тип'
+      ,[date_begin] as 'Начало периода'
+      ,year(date_begin) as 'Год начала'
+      ,[date_end] as 'Окончание периода'
+      ,year(date_end) as 'Год окончания'
+      ,[sys_id] as 'Номер в БД'
+      ,[not_filled]
+      ,'oт '+CONVERT(varchar, [date_begin], 120) +' до '+CONVERT(varchar, [date_end], 120) as 'Period'      
+  FROM [AnalitDB].[dbo].[v_catalog];
+
+not_filled_dict:
+SQL SELECT [table_name] from
+[AnalitDB].[struct].[v_X_Локальные_справочники_без_связки];
+
+class:
+SQL SELECT  
+      trim ('|||' from [columns_name]) as class_attribute
+      ,[class]
+  FROM [Analit_DDS].[Структура].[X_for_decribing_gold_notes];
+
+subclasses:
+SQL SELECT  [sys_id] as [sys_id1]
+      ,[class]
+      ,[subclass]
+  FROM [Analit_DDS].[Структура].[X_Subclasses];
+ 
+subclass_attribute:
+SQL SELECT 
+[sys_id1]
+      ,[label_1]
+  FROM [AnalitDB].[struct].[v_X_Организации_для_каталога_данных_3]
+  where [label_1] != '';
+
+example_dict:
+SQL SELECT TOP (10) 
+1011534687 as sys_id1
+,[id] as id_dict
+      ,[name] as name_dict
+      ,[inn] as inn_dict
+      ,[kpp] as kpp_dict
+      ,[unp_urn] as unp_urn_dict
+      ,[mo_id] as mo_id_dict
+      ,[GUID] as GUID_dict
+      ,[schools_urn] as schools_urn_dict
+      ,[locked] as locked_dict
+      ,[global_id] as global_id_dict
+  FROM [AnalitDB].[dbo].[_Dict_Departments];
+
+example_sch:
+SQL SELECT TOP (10)
+137155634 as sys_id1
+	  ,[id] as id_sch
+      ,[external_id] as external_id_sch
+      ,[create_date] as create_date_sch
+      ,[modify_date] as modify_date_sch
+      ,[code]  as code_sch
+      ,[name]  as name_sch
+	  ,[inn]  as inn_sch
+      ,[kpp]  as kpp_sch
+      ,[okato]  as okato_sch
+      ,[okpo]  as okpo_sch
+      ,[ogrn]  as ogrn_sch
+      ,[ege_code]  as ege_code_sch
+      ,[gia_code]  as gia_code_sch
+      ,[fias]  as fias_sch
+      ,[zipcode]  as zipcode_sch
+      ,[address]  as address_sch
+      ,[house]  as house_sch
+      ,[reg_fias]  as reg_fias_sch
+      ,[reg_zipcode]  as reg_zipcode_sch
+      ,[reg_address]  as reg_address_sch
+      ,[reg_house]  as reg_house_sch
+      ,[phone]  as phone_sch
+      ,[mail]  as mail_sch
+      ,[parent_id]  as parent_id_sch
+      ,[territory_id]  as territory_id_sch
+	  ,[territory_type]  as territory_type_sch
+      ,[level]  as level_sch
+      ,[internatcount]  as internatcount_sch
+      ,[locked]  as locked_sch
+      ,[global_id]  as global_id_sch
+  FROM [AnalitDB].[edu].[SCH_Units] order by id;
+
+
+qualify *;
+Unqualify sys_id1;
+
+
+kg:
+SQL SELECT TOP (10)
+2013302282 as sys_id1, *
+FROM [AnalitDB].[edu].[KG_Unit];
+
+hu:
+SQL SELECT TOP (10)
+616493375 as sys_id1, *
+FROM [AnalitDB].[econom].[HunterOrganizations];
+
+me:
+SQL SELECT TOP (10) 855114237 as sys_id1,
+*  FROM [AnalitDB].[med].[BK_Organizations];
+
+kge:
+SQL SELECT TOP (10) 800162046 as sys_id1, *
+  FROM [AnalitDB].[dbo].[edu.KG_entity_list];
+
+se:
+SQL SELECT TOP (10) 1275307753 as sys_id1, *
+FROM [AnalitDB].[edoc].[СЭД_Организации];
+
+ae:
+SQL SELECT TOP (10) 270064148 as sys_id1, *
+FROM [AnalitDB].[edu].[AE_Units];
+
+pae: /*Первая буква - класс, вторая-третья - подкласс*/
+SQL SELECT TOP (10) 1556304704 as sys_id1, *
+FROM [AnalitDB].[edu].[AE_Persons];
+
+ome:
+SQL SELECT TOP (10) 713873710 as sys_id1, *
+FROM [AnalitDB].[med].[TFOMS];
+
+oog:
+SQL SELECT TOP (10) 485016909 as sys_id1, *
+FROM [AnalitDB].[struct].[X_DEPARTMENTS];
+
+omf:
+SQL SELECT TOP (10) 1845737778 as sys_id1, *
+FROM [AnalitDB].[med].[Filials_MO];
+
+
+
+Unqualify *;
