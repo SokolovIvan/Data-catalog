@@ -1,0 +1,64 @@
+USE [AnalitDB]
+GO
+/****** Object:  StoredProcedure [struct].[update_date_column_for_catalog]    Script Date: 1/17/2021 3:37:44 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+ALTER PROCEDURE  [struct].[update_date_column_for_catalog]
+/*
+[AnalitDB].[sys.extended_properties](value) |
+[AnalitDB].[struct].[X_TABLES](date_column)
+*/
+AS BEGIN
+
+
+CREATE TABLE [struct].[comments_to_columns](
+	[major_id] [int] NULL,
+	[minor_id] [int] null,
+	[value] [varchar] (300) NULL
+) ON [PRIMARY]
+
+insert into [struct].[comments_to_columns]
+select major_id, minor_id, convert(varchar (300), [value]) from sys.extended_properties where minor_id != 0 and name = 'MS_Description'
+
+ 
+ CREATE TABLE [struct].[comments_to_change](
+	[major_id] [int] NULL,
+	[column_name] [varchar] (300) NULL,
+	[ind] [int] null
+) ON [PRIMARY]
+
+insert into [struct].[comments_to_change]
+
+ select x_tb.[sys_id], tmp1.column_name, ROW_NUMBER () over (order by [sys_id]) as ind
+ from 
+ [AnalitDB].[struct].[X_TABLES] x_tb
+ join (
+ select 
+ [major_id]
+ , [name] as column_name
+ from [struct].[comments_to_columns] c_c
+ join syscolumns  sc on c_c.major_id = sc.id and c_c.minor_id = sc.colorder
+ where SUBSTRING ( REVERSE([value]) ,1 , 11 ) = 'sredrobetad') as tmp1
+ on x_tb.sys_id = tmp1.major_id and x_tb.date_column != '[' + tmp1.column_name + ']'
+
+
+ declare @ind int, @ind1 int, @major_id int, @column_date varchar (300)
+
+ set @ind = (select min (ind) from [struct].[comments_to_change])
+ set @ind1 = (select max (ind) from [struct].[comments_to_change])
+
+ while @ind <= @ind1 begin
+ set @major_id = (select [major_id] from [struct].[comments_to_change] where ind = @ind)
+ set @column_date = (select [column_name] from [struct].[comments_to_change] where ind = @ind)
+
+ update [AnalitDB].[struct].[X_TABLES] set [date_column] = @column_date where [sys_id] = @major_id
+
+ set @ind = @ind + 1 end
+
+ drop table [struct].[comments_to_columns]
+ drop table [struct].[comments_to_change]
+
+ END
