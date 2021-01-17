@@ -1,0 +1,64 @@
+USE [AnalitDB]
+GO
+/****** Object:  StoredProcedure [struct].[create_catalog_view]    Script Date: 1/17/2021 3:37:00 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+-- =============================================
+-- Author:		<Author,,Name>
+-- Create date: <Create Date,,>
+-- Description:	<Description,,>
+-- =============================================
+ALTER PROCEDURE [struct].[create_catalog_view]
+
+/*
+[dbo].[v_catalog_with_date](major_id1) |
+[struct].[X_for_date_buf](ind)
+---
+[dbo].[v_catalog_with_date](date_column) |
+[struct].[X_for_date_buf](date_begin)
+---
+[dbo].[v_catalog_with_date](date_column) |
+[struct].[X_for_date_buf](date_end)
+*/
+
+AS
+BEGIN
+
+delete from [AnalitDB].[struct].[X_for_date_buf]
+
+DECLARE @SQLmin varchar(2000), @SQLmax varchar(2000), @table_name varchar(100), @column_name varchar(100), @ind int, @ind1 int, @major int
+
+set @ind1 = (select max (ind) from [AnalitDB].[dbo].[v_catalog_with_date])
+set @ind = (select min (ind) from [AnalitDB].[dbo].[v_catalog_with_date])
+
+ while @ind <= @ind1 begin
+ 
+set @table_name = (select [full_name] from [AnalitDB].[dbo].[v_catalog_with_date] where ind = @ind)
+set @column_name = (select [date_column] from [AnalitDB].[dbo].[v_catalog_with_date] where ind = @ind)
+set @major = (select [sys_id] from [AnalitDB].[dbo].[v_catalog_with_date] where ind = @ind)
+
+begin try
+SET @SQLmax = 'SELECT max (cast (convert(varchar,' + @column_name + ') as date)) FROM ' + @table_name
+SET @SQLmin = 'SELECT min (cast (convert(varchar,' + @column_name + ') as date)) FROM ' + @table_name
+
+end try
+begin catch
+set @ind = @ind + 1
+set @table_name = (select [full_name] from [AnalitDB].[dbo].[v_catalog_with_date] where ind = @ind)
+set @column_name = (select [date_column] from [AnalitDB].[dbo].[v_catalog_with_date] where ind = @ind)
+set @major = (select [sys_id] from [AnalitDB].[dbo].[v_catalog_with_date] where ind = @ind)
+end catch
+
+
+declare @SQLmain varchar(2000) = 'select (' + convert(varchar,@major) + ') as ind, (' + @SQLmin + ') as date_begin, (' + @SQLmax + ') as date_end'
+-- даты передаются в формате, который были изначально задан, изменить это нельзя потому что переменная @SQLmain в формате varchar конвертировать надо будет позднее.
+
+insert into  [AnalitDB].[struct].[X_for_date_buf]
+exec(@SQLmain)
+set @ind = @ind + 1
+end
+
+
+END
