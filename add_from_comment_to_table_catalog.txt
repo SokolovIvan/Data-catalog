@@ -1,0 +1,164 @@
+USE [AnalitDB]
+GO
+/****** Object:  StoredProcedure [struct].[add_from_comment_to_table_catalog]    Script Date: 1/17/2021 3:30:41 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+-- =============================================
+-- Author:		<Author,,Name>
+-- Create date: <Create Date,,>
+-- Description:	<Description,,>
+-- =============================================
+ALTER PROCEDURE  [struct].[add_from_comment_to_table_catalog]
+/*
+[sysobjects](id) |
+[AnalitDB].[struct].[X_TABLES](sys_id)
+---
+[sys.extended_properties](major_id) |
+[AnalitDB].[struct].[X_for_describing_buf](major_id)
+---
+[sys.extended_properties](value) |
+[AnalitDB].[struct].[X_for_describing_buf](note)
+---
+[sys.extended_properties](value) |
+[AnalitDB].[struct].[X_for_describing_buf](gist)
+---
+[sys.extended_properties](value) |
+[AnalitDB].[struct].[X_for_describing_buf](type)
+---
+[sys.extended_properties](value) |
+[AnalitDB].[struct].[X_for_describing_buf](ind)
+*/
+AS
+BEGIN
+
+
+ CREATE TABLE [struct].[names_to_change](
+	[column_name_X] [varchar] (300) NULL,
+	[sys_id_X] [int] NULL,
+	[column_name_sys] [varchar] (300) NULL,
+	[id_sys] [int] NULL,
+	[ind] [int] null
+) ON [PRIMARY]
+
+insert into [struct].[names_to_change]
+
+select x.name, x.[sys_id], s.name, s.id, ROW_NUMBER () over(order by sys_id) as ind from sysobjects s
+join [AnalitDB].[struct].[X_TABLES] x
+on x.name != s.name and x.[sys_id] = s.id 
+
+ declare @ind4 int, @ind5 int, @major_id4 int, @name4 varchar (300) 
+
+set @ind4 = (select min (ind) from [struct].[names_to_change])
+set @ind5 = (select max (ind) from [struct].[names_to_change])
+
+while @ind4 <= @ind5 begin
+ set @major_id4 = (select [sys_id_X] from [struct].[names_to_change] where ind = @ind4)
+ set @name4 = (select [column_name_sys] from [struct].[names_to_change] where ind = @ind4)
+
+ update [AnalitDB].[struct].[X_TABLES] set [name] = @name4 where [sys_id] = @major_id4
+
+ set @ind4 = @ind4 + 1 end
+
+ drop table [struct].[names_to_change]
+
+
+declare @major_id int, @ind0 int, @ind1 int, @name varchar(2000), @schema varchar(200)
+declare @comment varchar (2000), @note varchar (2000), @gist int, @type int,  @ind10 int,  @ind11 int
+
+delete [AnalitDB].[struct].[X_for_add_sysid] 
+insert into [AnalitDB].[struct].[X_for_add_sysid]
+
+select  sys_t.[sys_id] as major_id, x_t.[name], db_schema, row_number () over (order by x_t.[name]) as ind
+from [AnalitDB].[struct].[X_TABLES] x_t
+join 
+(select so.name as [name], ss.name as [schema], so.id as [sys_id] from sysobjects so
+join sys.schemas ss
+on so.uid = ss.schema_id
+) sys_t
+on x_t.[name] = sys_t.name and x_t.db_schema = sys_t.[schema] and (x_t.sys_id is null or x_t.sys_id = '')
+
+
+
+set @ind0 = (select min (ind) from [AnalitDB].[struct].[X_for_add_sysid])
+set @ind1 = (select max (ind) from [AnalitDB].[struct].[X_for_add_sysid])
+
+ while @ind0 <= @ind1 begin
+
+set @name = (select [name] from [AnalitDB].[struct].[X_for_add_sysid] where ind = @ind0)
+set @schema = (select [schema] from [AnalitDB].[struct].[X_for_add_sysid] where ind = @ind0)
+
+update [AnalitDB].[struct].[X_TABLES] set [sys_id] = (select [major_id] from [AnalitDB].[struct].[X_for_add_sysid] where ind = @ind0)
+where [name] = @name and db_schema = @schema
+
+set @ind0 = @ind0 + 1 end
+
+-- разделитель, сверху идёт добавление sys_id в таблицу [X_TABLES], снизу идёт добавление note, gist, type в служебную таблицу [X_for_describing_buf]
+
+delete [AnalitDB].[struct].[X_for_comments_buf]
+insert into [AnalitDB].[struct].[X_for_comments_buf]
+select major_id, convert(varchar (2000), [value]), ROW_NUMBER () over (order by major_id) as ind  from sys.extended_properties where minor_id = 0 and name = 'MS_Description'
+
+delete [AnalitDB].[struct].[X_for_describing_buf]
+
+-- declare @comment varchar (2000), @note varchar (2000), @major_id int, @gist int, @type int, @ind0 int, @ind1 int,  @ind10 int,  @ind11 int
+
+set @ind0 = (select min (ind) from [AnalitDB].[struct].[X_for_comments_buf])
+set @ind1 = (select max (ind) from [AnalitDB].[struct].[X_for_comments_buf])
+
+
+while @ind0 <= @ind1 begin
+
+
+set @comment = (select [value] from [AnalitDB].[struct].[X_for_comments_buf] where ind = @ind0)
+set @major_id = (select major_id from [AnalitDB].[struct].[X_for_comments_buf] where ind = @ind0)
+set @ind10 = CHARINDEX ('|', @comment)
+set @note = SUBSTRING (@comment, 1, @ind10 - 1)
+set @ind11 = CHARINDEX ('|', @comment, @ind10 + 1)
+set @gist = SUBSTRING (@comment, @ind10 + 1, @ind11 - 1 - @ind10)
+set @type = SUBSTRING (@comment, @ind11 + 1, 2000)
+
+insert into [AnalitDB].[struct].[X_for_describing_buf]
+select @major_id, @note, @gist, @type, @ind0
+
+set @ind0 = @ind0 + 1 end
+
+
+END
+
+/*
+ delete from [struct].[X_for_comments_buf]
+ insert into [struct].[X_for_comments_buf]
+select major_id, convert(varchar (2000), [value]) as [value], ROW_NUMBER() over (order by major_id) as ind from sys.extended_properties where minor_id = 0 and name = 'MS_Description'
+
+ declare @ind_string as int, @text as varchar(2000), @note as varchar(2000), @gist as varchar(300), @type as varchar (300), @ind as int, @ind1 as int, @major_id as int
+
+ set @ind = (select min(ind) from [struct].[X_for_comments_buf])
+ set @ind1 = (select max(ind) from [struct].[X_for_comments_buf])
+ while @ind <= @ind1 begin
+
+ set @major_id = (select [major_id] from [struct].[X_for_comments_buf] where ind = @ind)
+ set @text = (select [value] from [struct].[X_for_comments_buf] where ind = @ind)
+ set @ind_string = charindex('|',  @text) -- ищем начальную позицию первого выражения
+ set @note = SUBSTRING(@text,1,@ind_string-1)  -- выводим количество символов от и до.
+ set @text = SUBSTRING(@text,@ind_string+1,2000)
+ set @ind_string = charindex('|',  @text) -- ищем начальную позицию первого выражения
+ set @gist = SUBSTRING(@text,1,@ind_string-1)  -- выводим количество символов от и до.
+ set @type = SUBSTRING(@text,@ind_string+1, 2000)
+
+UPDATE [AnalitDB].[struct].[X_TABLES]
+SET [note] = @note WHERE [AnalitDB].[struct].[X_TABLES].[sys_id] = @major_id
+
+UPDATE [AnalitDB].[struct].[X_TABLES]
+SET [gist] = @gist WHERE [AnalitDB].[struct].[X_TABLES].[sys_id] = @major_id
+
+UPDATE [AnalitDB].[struct].[X_TABLES]
+SET [type] = @type WHERE [AnalitDB].[struct].[X_TABLES].[sys_id] = @major_id
+
+set @ind = @ind + 1 end
+
+END
+
+
+*/
